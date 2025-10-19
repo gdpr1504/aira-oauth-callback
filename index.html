@@ -162,7 +162,7 @@
             const userData = localStorage.getItem("aira_oauth_user");
             if (userData) {
               const parsedUserData = JSON.parse(userData);
-              
+
               // Create storage data for extension
               const storageData = {
                 google_user: parsedUserData,
@@ -174,7 +174,7 @@
                 aira_oauth_user: userData,
                 last_login: new Date().toISOString(),
               };
-              
+
               // Send data back to parent window (extension)
               if (window.parent && window.parent !== window) {
                 window.parent.postMessage(
@@ -186,7 +186,10 @@
                   },
                   "*"
                 );
-                console.log("OAuth data sent to extension for storage:", parsedUserData);
+                console.log(
+                  "OAuth data sent to extension for storage:",
+                  parsedUserData
+                );
               }
             } else {
               console.log("No user data found in localStorage");
@@ -320,25 +323,31 @@
             try {
               if (window.opener && !window.opener.closed) {
                 // Send storage command to extension
-                window.opener.postMessage({
-                  type: "STORE_OAUTH_DATA",
-                  userData: userData,
-                  storageData: {
-                    google_user: userData,
-                    is_authenticated: true,
-                    aira_access_token: tokenData.access_token,
-                    aira_user_name: userInfo.name,
-                    aira_user_picture: userInfo.picture,
-                    google_oauth_state: state,
-                    aira_oauth_user: JSON.stringify(userData),
-                    last_login: new Date().toISOString(),
+                window.opener.postMessage(
+                  {
+                    type: "STORE_OAUTH_DATA",
+                    userData: userData,
+                    storageData: {
+                      google_user: userData,
+                      is_authenticated: true,
+                      aira_access_token: tokenData.access_token,
+                      aira_user_name: userInfo.name,
+                      aira_user_picture: userInfo.picture,
+                      google_oauth_state: state,
+                      aira_oauth_user: JSON.stringify(userData),
+                      last_login: new Date().toISOString(),
+                    },
+                    message: "OAuth data for extension storage",
                   },
-                  message: "OAuth data for extension storage"
-                }, "*");
+                  "*"
+                );
                 console.log("OAuth data sent to extension for storage");
               }
             } catch (postMessageError) {
-              console.log("Could not send OAuth data to extension:", postMessageError);
+              console.log(
+                "Could not send OAuth data to extension:",
+                postMessageError
+              );
             }
 
             // Step 5b: Also try to store in extension's storage via postMessage
