@@ -149,7 +149,9 @@
           clientId:
             "350550609816-kcg51l47ltlb6qopr1jj5ueqog43vgrg.apps.googleusercontent.com",
           // Client secret - stored as base64 encoded to avoid GitHub detection
-          clientSecret: atob("R09DU1BYLTdzb1ctN0pvWF9ORUx5UVNackpiSU5nSUQxQk4="),
+          clientSecret: atob(
+            "R09DU1BYLTdzb1ctN0pvWF9ORUx5UVNackpiSU5nSUQxQk4="
+          ),
         };
 
         // Show configuration info only if no code is present (for setup)
@@ -355,21 +357,21 @@
             event.origin
           );
 
-          const allowedOrigins = [
-            window.location.origin,
-            "https://auth.shopwithaira.com",
-            "https://aira-backend.airaai.workers.dev",
-            "https://gdpr1504.github.io",
-            "chrome-extension://" +
-              (typeof chrome !== "undefined" ? chrome.runtime?.id : "unknown"),
-            "safari-web-extension://" +
-              (typeof chrome !== "undefined" ? chrome.runtime?.id : "unknown"),
-          ];
+          // const allowedOrigins = [
+          //   window.location.origin,
+          //   "https://auth.shopwithaira.com",
+          //   "https://aira-backend.airaai.workers.dev",
+          //   "https://gdpr1504.github.io",
+          //   "chrome-extension://" +
+          //     (typeof chrome !== "undefined" ? chrome.runtime?.id : "unknown"),
+          //   "safari-web-extension://" +
+          //     (typeof chrome !== "undefined" ? chrome.runtime?.id : "unknown"),
+          // ];
 
-          if (!allowedOrigins.includes(event.origin)) {
-            console.log("Origin not allowed:", event.origin);
-            return;
-          }
+          // if (!allowedOrigins.includes(event.origin)) {
+          //   console.log("Origin not allowed:", event.origin);
+          //   return;
+          // }
 
           if (event.data.type === "OAUTH_COMPLETED") {
             console.log("OAuth completed, updating extension storage...");
