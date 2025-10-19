@@ -164,11 +164,14 @@
               const parsedUserData = JSON.parse(userData);
               // Send data back to parent window (extension)
               if (window.parent && window.parent !== window) {
-                window.parent.postMessage({
-                  type: "OAUTH_DATA_RESPONSE",
-                  userData: parsedUserData,
-                  message: "User data from OAuth callback"
-                }, "*");
+                window.parent.postMessage(
+                  {
+                    type: "OAUTH_DATA_RESPONSE",
+                    userData: parsedUserData,
+                    message: "User data from OAuth callback",
+                  },
+                  "*"
+                );
                 console.log("User data sent to extension:", parsedUserData);
               }
             } else {
@@ -325,15 +328,21 @@
             try {
               if (window.opener && !window.opener.closed) {
                 // Send the complete user data to the extension
-                window.opener.postMessage({
-                  type: "OAUTH_USER_DATA",
-                  userData: userData,
-                  message: "Complete user data from OAuth callback"
-                }, "*");
+                window.opener.postMessage(
+                  {
+                    type: "OAUTH_USER_DATA",
+                    userData: userData,
+                    message: "Complete user data from OAuth callback",
+                  },
+                  "*"
+                );
                 console.log("User data sent to extension via postMessage");
               }
             } catch (postMessageError) {
-              console.log("Could not send user data to extension:", postMessageError);
+              console.log(
+                "Could not send user data to extension:",
+                postMessageError
+              );
             }
 
             // Step 6: Execute handleMessage function to update extension state
