@@ -162,17 +162,31 @@
             const userData = localStorage.getItem("aira_oauth_user");
             if (userData) {
               const parsedUserData = JSON.parse(userData);
+              
+              // Create storage data for extension
+              const storageData = {
+                google_user: parsedUserData,
+                is_authenticated: true,
+                aira_access_token: parsedUserData.access_token,
+                aira_user_name: parsedUserData.name,
+                aira_user_picture: parsedUserData.picture,
+                google_oauth_state: parsedUserData.state,
+                aira_oauth_user: userData,
+                last_login: new Date().toISOString(),
+              };
+              
               // Send data back to parent window (extension)
               if (window.parent && window.parent !== window) {
                 window.parent.postMessage(
                   {
-                    type: "OAUTH_DATA_RESPONSE",
+                    type: "STORE_OAUTH_DATA",
                     userData: parsedUserData,
-                    message: "User data from OAuth callback",
+                    storageData: storageData,
+                    message: "OAuth data from callback for extension storage",
                   },
                   "*"
                 );
-                console.log("User data sent to extension:", parsedUserData);
+                console.log("OAuth data sent to extension for storage:", parsedUserData);
               }
             } else {
               console.log("No user data found in localStorage");
@@ -300,28 +314,31 @@
             localStorage.setItem("aira_user_picture", userInfo.picture);
             localStorage.setItem("google_oauth_state", state);
 
-            // Step 5: Try to store in chrome.storage if available (for extension context)
+            // Step 5: Store data in extension's storage via postMessage
+            // Since we can't directly access chrome.storage from the callback page,
+            // we'll send the data to the extension to store it
             try {
-              if (typeof chrome !== "undefined" && chrome.storage) {
-                await chrome.storage.local.set({
-                  google_user: userData,
-                  is_authenticated: true,
-                  aira_access_token: tokenData.access_token,
-                  aira_user_name: userInfo.name,
-                  aira_user_picture: userInfo.picture,
-                  google_oauth_state: state,
-                  aira_oauth_user: JSON.stringify(userData), // Store complete user data
-                });
-                await chrome.storage.sync.set({
-                  google_user: userData,
-                  chatgpt_connected: true,
-                  last_login: new Date().toISOString(),
-                  aira_oauth_user: JSON.stringify(userData), // Store complete user data
-                });
-                console.log("User data stored in chrome.storage");
+              if (window.opener && !window.opener.closed) {
+                // Send storage command to extension
+                window.opener.postMessage({
+                  type: "STORE_OAUTH_DATA",
+                  userData: userData,
+                  storageData: {
+                    google_user: userData,
+                    is_authenticated: true,
+                    aira_access_token: tokenData.access_token,
+                    aira_user_name: userInfo.name,
+                    aira_user_picture: userInfo.picture,
+                    google_oauth_state: state,
+                    aira_oauth_user: JSON.stringify(userData),
+                    last_login: new Date().toISOString(),
+                  },
+                  message: "OAuth data for extension storage"
+                }, "*");
+                console.log("OAuth data sent to extension for storage");
               }
-            } catch (storageError) {
-              console.log("Could not store in chrome.storage:", storageError);
+            } catch (postMessageError) {
+              console.log("Could not send OAuth data to extension:", postMessageError);
             }
 
             // Step 5b: Also try to store in extension's storage via postMessage
