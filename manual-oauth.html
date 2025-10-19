@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manual OAuth Completion - Aira</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .container {
+        text-align: center;
+        max-width: 500px;
+        padding: 40px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+      .logo {
+        width: 60px;
+        height: 60px;
+        margin: 0 auto 20px;
+        background: white;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: bold;
+        color: #667eea;
+      }
+      h1 {
+        margin: 0 0 20px;
+        font-size: 24px;
+        font-weight: 600;
+      }
+      .code-input {
+        width: 100%;
+        padding: 15px;
+        border: none;
+        border-radius: 10px;
+        font-size: 16px;
+        margin: 20px 0;
+        background: rgba(255, 255, 255, 0.9);
+        color: #333;
+      }
+      .btn {
+        background: #ff7a00;
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin: 10px;
+        transition: background 0.3s;
+      }
+      .btn:hover {
+        background: #e66d00;
+      }
+      .btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+      .status {
+        margin: 20px 0;
+        padding: 15px;
+        border-radius: 10px;
+        display: none;
+      }
+      .success {
+        background: rgba(81, 207, 102, 0.2);
+        border: 1px solid rgba(81, 207, 102, 0.5);
+      }
+      .error {
+        background: rgba(255, 107, 107, 0.2);
+        border: 1px solid rgba(255, 107, 107, 0.5);
+      }
+      .user-info {
+        text-align: left;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 20px;
+        border-radius: 10px;
+        margin: 20px 0;
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="logo">A</div>
+      <h1>Complete OAuth Authentication</h1>
+      <p>Enter the authorization code from the OAuth callback page:</p>
+
+      <input
+        type="text"
+        id="authCode"
+        class="code-input"
+        placeholder="Paste authorization code here..."
+        value="4/0AVGzR1AP2Vj8xv3S8uIVsvHQwbOUe4mbXzXy4QlXukQO6CRGksLWjnZ3IHqakWKAXBDJpQ"
+      />
+
+      <div>
+        <button id="completeBtn" class="btn">Complete Authentication</button>
+        <button id="copyBtn" class="btn">Copy Code</button>
+      </div>
+
+      <div id="status" class="status"></div>
+      <div id="userInfo" class="user-info"></div>
+    </div>
+
+    <script>
+      const authCodeInput = document.getElementById("authCode");
+      const completeBtn = document.getElementById("completeBtn");
+      const copyBtn = document.getElementById("copyBtn");
+      const status = document.getElementById("status");
+      const userInfo = document.getElementById("userInfo");
+
+      // Copy code to clipboard
+      copyBtn.addEventListener("click", () => {
+        authCodeInput.select();
+        document.execCommand("copy");
+        showStatus("Code copied to clipboard!", "success");
+      });
+
+      // Complete authentication
+      completeBtn.addEventListener("click", async () => {
+        const code = authCodeInput.value.trim();
+        if (!code) {
+          showStatus("Please enter an authorization code", "error");
+          return;
+        }
+
+        completeBtn.disabled = true;
+        completeBtn.textContent = "Processing...";
+        showStatus("Exchanging code for user info...", "success");
+
+        try {
+          const response = await fetch(
+            "http://localhost:8787/api/oauth/google",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                code: code,
+                state: "aira-oauth-manual",
+                redirect_uri: "https://gdpr1504.github.io/aira-oauth-callback",
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(
+              errorData.error || `Backend error: ${response.status}`
+            );
+          }
+
+          const userData = await response.json();
+          console.log("User data received:", userData);
+
+          // Show user info
+          userInfo.innerHTML = `
+                    <h3>Authentication Successful! 🎉</h3>
+                    <p><strong>Name:</strong> ${userData.name}</p>
+                    <p><strong>Email:</strong> ${userData.email}</p>
+                    <p><strong>Verified:</strong> ${
+                      userData.verified_email ? "Yes" : "No"
+                    }</p>
+                    <p><strong>Access Token:</strong> ${userData.access_token.substring(
+                      0,
+                      20
+                    )}...</p>
+                `;
+          userInfo.style.display = "block";
+
+          showStatus(
+            "Authentication completed successfully! You can now close this window.",
+            "success"
+          );
+
+          // Store in localStorage for the extension to pick up
+          localStorage.setItem("aira_oauth_user", JSON.stringify(userData));
+          localStorage.setItem("aira_oauth_completed", "true");
+
+          // Also store in chrome.storage if available
+          try {
+            if (typeof chrome !== "undefined" && chrome.storage) {
+              chrome.storage.local.set({
+                aira_oauth_user: JSON.stringify(userData),
+                aira_oauth_completed: "true",
+              });
+              chrome.storage.sync.set({
+                google_user: userData,
+                chatgpt_connected: true,
+                last_login: new Date().toISOString(),
+              });
+            }
+          } catch (storageError) {
+            console.log("Could not store in chrome.storage:", storageError);
+          }
+
+          completeBtn.textContent = "Authentication Complete!";
+          completeBtn.style.background = "#51cf66";
+
+          // Try to notify the extension if it's available
+          try {
+            if (window.opener) {
+              window.opener.postMessage(
+                {
+                  type: "GOOGLE_OAUTH_SUCCESS",
+                  userInfo: userData,
+                  state: "aira-oauth-manual",
+                },
+                "*"
+              );
+
+              // Close the window after a short delay
+              setTimeout(() => {
+                window.close();
+              }, 2000);
+            } else {
+              // If no parent window, show instructions
+              showStatus(
+                "Authentication complete! You can now close this window and return to the extension.",
+                "success"
+              );
+            }
+          } catch (error) {
+            console.log("Could not notify parent window:", error);
+            showStatus(
+              "Authentication complete! You can now close this window and return to the extension.",
+              "success"
+            );
+          }
+        } catch (error) {
+          console.error("OAuth error:", error);
+          showStatus(`Authentication failed: ${error.message}`, "error");
+          completeBtn.disabled = false;
+          completeBtn.textContent = "Try Again";
+        }
+      });
+
+      function showStatus(message, type) {
+        status.textContent = message;
+        status.className = `status ${type}`;
+        status.style.display = "block";
+      }
+
+      // Auto-focus the input
+      authCodeInput.focus();
+    </script>
+  </body>
+</html>
