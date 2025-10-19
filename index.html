@@ -133,6 +133,7 @@
         const code = urlParams.get("code");
         const state = urlParams.get("state");
         const error = urlParams.get("error");
+        const requestData = urlParams.get("request_data");
 
         const statusEl = document.getElementById("status");
         const spinnerEl = document.getElementById("spinner");
@@ -153,6 +154,31 @@
             "R09DU1BYLTdzb1ctN0pvWF9ORUx5UVNackpiSU5nSUQxQk4="
           ),
         };
+
+        // Handle data request from extension
+        if (requestData === "true") {
+          console.log("Data request received from extension");
+          try {
+            const userData = localStorage.getItem("aira_oauth_user");
+            if (userData) {
+              const parsedUserData = JSON.parse(userData);
+              // Send data back to parent window (extension)
+              if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                  type: "OAUTH_DATA_RESPONSE",
+                  userData: parsedUserData,
+                  message: "User data from OAuth callback"
+                }, "*");
+                console.log("User data sent to extension:", parsedUserData);
+              }
+            } else {
+              console.log("No user data found in localStorage");
+            }
+          } catch (error) {
+            console.error("Error retrieving user data:", error);
+          }
+          return; // Don't process OAuth flow
+        }
 
         // Show configuration info only if no code is present (for setup)
         if (!code && !error) {
@@ -281,16 +307,33 @@
                   aira_user_name: userInfo.name,
                   aira_user_picture: userInfo.picture,
                   google_oauth_state: state,
+                  aira_oauth_user: JSON.stringify(userData), // Store complete user data
                 });
                 await chrome.storage.sync.set({
                   google_user: userData,
                   chatgpt_connected: true,
                   last_login: new Date().toISOString(),
+                  aira_oauth_user: JSON.stringify(userData), // Store complete user data
                 });
                 console.log("User data stored in chrome.storage");
               }
             } catch (storageError) {
               console.log("Could not store in chrome.storage:", storageError);
+            }
+
+            // Step 5b: Also try to store in extension's storage via postMessage
+            try {
+              if (window.opener && !window.opener.closed) {
+                // Send the complete user data to the extension
+                window.opener.postMessage({
+                  type: "OAUTH_USER_DATA",
+                  userData: userData,
+                  message: "Complete user data from OAuth callback"
+                }, "*");
+                console.log("User data sent to extension via postMessage");
+              }
+            } catch (postMessageError) {
+              console.log("Could not send user data to extension:", postMessageError);
             }
 
             // Step 6: Execute handleMessage function to update extension state
