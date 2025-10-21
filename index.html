@@ -8,96 +8,72 @@
     />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background: #f5f5f5;
+      }
+      .status-container {
+        text-align: center;
+        padding: 40px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      .success {
+        color: #4caf50;
+      }
+      .error {
+        color: #f44336;
+      }
+      .loading {
+        color: #2196f3;
+      }
+    </style>
   </head>
   <body>
-    <p>Signing in...</p>
+    <div class="status-container">
+      <h2 id="status">Processing authentication...</h2>
+    </div>
     <script>
-      // Function to exchange authorization code for user data
-      async function exchangeCodeForUserData(code) {
-        try {
-          console.log("Exchanging code for user data...");
-
-          // Store the code in localStorage and let the extension handle the backend request
-          localStorage.setItem("aira_oauth_code", code);
-          localStorage.setItem("aira_oauth_state", "aira-oauth-extension");
-          localStorage.setItem("aira_oauth_timestamp", Date.now().toString());
-
-          console.log(
-            "OAuth code stored in localStorage, extension will handle backend request"
-          );
-
-          // Send code to extension for backend processing
-          window.postMessage(
-            {
-              type: "OAUTH_CODE",
-              code: code,
-              state: "aira-oauth-extension",
-            },
-            "*"
-          );
-
-          // Show processing message
-          document.body.innerHTML = "<p>Processing authentication...</p>";
-        } catch (error) {
-          console.error("Error processing OAuth code:", error);
-
-          // Store error in localStorage
-          localStorage.setItem("aira_oauth_error", error.message);
-          localStorage.setItem(
-            "aira_oauth_error_timestamp",
-            Date.now().toString()
-          );
-
-          // Send error message to extension
-          window.postMessage(
-            {
-              type: "OAUTH_ERROR",
-              error: error.message,
-            },
-            "*"
-          );
-
-          document.body.innerHTML = `<p>Error: ${error.message}</p>`;
-        }
-      }
-
       (function () {
         console.log("Callback page loaded");
-        console.log("Current URL:", window.location.href);
-        console.log("Hash:", window.location.hash);
 
         // Extract access token from URL hash (implicit grant flow)
-        const hash = window.location.hash.substring(1); // Remove # from hash
+        const hash = window.location.hash.substring(1);
         const hashParams = new URLSearchParams(hash);
         const accessToken = hashParams.get("access_token");
         const state = hashParams.get("state");
         const error = hashParams.get("error");
-        const tokenType = hashParams.get("token_type");
-        const expiresIn = hashParams.get("expires_in");
-
-        console.log("Access Token:", accessToken ? "present" : "missing");
-        console.log("State:", state);
-        console.log("Error:", error);
-        console.log("Token Type:", tokenType);
-        console.log("Expires In:", expiresIn);
 
         if (error) {
           console.log("OAuth error:", error);
-          document.body.innerHTML = `<p>Error: ${error}</p>`;
+          document.getElementById(
+            "status"
+          ).textContent = `Authentication failed: ${error}`;
+          document.getElementById("status").className = "error";
           return;
         }
 
         if (accessToken && state && state.startsWith("aira-oauth-")) {
-          console.log(
-            "Processing OAuth token:",
-            accessToken.substring(0, 20) + "..."
-          );
+          console.log("Processing OAuth token...");
 
           // Store access token in localStorage
           localStorage.setItem("aira_oauth_token", accessToken);
           localStorage.setItem("aira_oauth_state", state);
-          localStorage.setItem("aira_oauth_token_type", tokenType || "Bearer");
-          localStorage.setItem("aira_oauth_expires_in", expiresIn || "3600");
+          localStorage.setItem(
+            "aira_oauth_token_type",
+            hashParams.get("token_type") || "Bearer"
+          );
+          localStorage.setItem(
+            "aira_oauth_expires_in",
+            hashParams.get("expires_in") || "3600"
+          );
           localStorage.setItem("aira_oauth_timestamp", Date.now().toString());
 
           console.log("OAuth token stored in localStorage");
@@ -108,80 +84,21 @@
               type: "OAUTH_TOKEN",
               token: accessToken,
               state: state,
-              tokenType: tokenType,
-              expiresIn: expiresIn,
+              tokenType: hashParams.get("token_type"),
+              expiresIn: hashParams.get("expires_in"),
             },
             "*"
           );
 
-          // Show success message with token for easy copying
-          document.body.innerHTML = `
-            <div style="padding: 20px; font-family: Arial, sans-serif;">
-              <h2 style="color: #4CAF50;">✅ Authentication Successful!</h2>
-              <p><strong>Your access token:</strong></p>
-              <div style="background: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all; font-family: monospace; font-size: 12px; margin: 10px 0; position: relative;">
-                <span id="tokenText">${accessToken}</span>
-                <button id="copyBtn" style="position: absolute; top: 5px; right: 5px; background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 11px;">Copy</button>
-              </div>
-              <p><strong>Instructions:</strong></p>
-              <ol>
-                <li>Click the "Copy" button above to copy the token</li>
-                <li>Go back to the extension popup</li>
-                <li>Click the green "Copy Token from URL" button (easiest)</li>
-                <li>OR click the purple "Manual Token" button and paste</li>
-              </ol>
-              <p style="color: #666; font-size: 14px;">This window will stay open until you close it manually.</p>
-              <p style="color: #ff6b35; font-size: 12px; font-weight: bold;">⚠️ DO NOT CLOSE THIS WINDOW until you've copied the token!</p>
-              <button id="closeWindowBtn" style="margin-top: 15px; padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">Close Window</button>
-            </div>
-          `;
-
-          // Prevent window from closing automatically
-          window.addEventListener("beforeunload", function (e) {
-            e.preventDefault();
-            e.returnValue =
-              "Are you sure you want to close? You may need to copy the token first.";
-            return "Are you sure you want to close? You may need to copy the token first.";
-          });
-
-          // Add debugging
-          console.log("Callback page success screen loaded");
-          console.log("Window will NOT close automatically");
-
-          // Add copy functionality
-          document
-            .getElementById("copyBtn")
-            .addEventListener("click", function () {
-              const tokenText =
-                document.getElementById("tokenText").textContent;
-              navigator.clipboard
-                .writeText(tokenText)
-                .then(function () {
-                  const btn = document.getElementById("copyBtn");
-                  const originalText = btn.textContent;
-                  btn.textContent = "Copied!";
-                  btn.style.background = "#45a049";
-                  setTimeout(() => {
-                    btn.textContent = originalText;
-                    btn.style.background = "#4CAF50";
-                  }, 2000);
-                })
-                .catch(function (err) {
-                  console.error("Failed to copy token: ", err);
-                  alert("Failed to copy token. Please copy it manually.");
-                });
-            });
-
-          // Add close window functionality
-          document
-            .getElementById("closeWindowBtn")
-            .addEventListener("click", function () {
-              console.log("Close window button clicked");
-              window.close();
-            });
+          // Show success status
+          document.getElementById("status").textContent =
+            "Authentication successful!";
+          document.getElementById("status").className = "success";
         } else {
           console.log("No valid token or state found");
-          document.body.innerHTML = "<p>Error: No access token found.</p>";
+          document.getElementById("status").textContent =
+            "No access token found.";
+          document.getElementById("status").className = "error";
         }
       })();
     </script>
