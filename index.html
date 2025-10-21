@@ -41,7 +41,55 @@
       <h2 id="status">Processing authentication...</h2>
     </div>
     <script>
-      (function () {
+      // Encryption utilities (same as extension)
+      const ENCRYPTION_KEY = "aira-oauth-extension-key-2025";
+
+      async function encryptToken(token) {
+        try {
+          console.log("Starting encryption process in callback...");
+          const encoder = new TextEncoder();
+          const data = encoder.encode(token);
+          console.log("Data encoded, length:", data.length);
+
+          const key = await crypto.subtle.importKey(
+            "raw",
+            encoder.encode(ENCRYPTION_KEY),
+            { name: "AES-GCM" },
+            false,
+            ["encrypt"]
+          );
+          console.log("Key imported successfully in callback");
+
+          const iv = crypto.getRandomValues(new Uint8Array(12));
+          console.log("IV generated:", iv.length, "bytes");
+
+          const encrypted = await crypto.subtle.encrypt(
+            { name: "AES-GCM", iv: iv },
+            key,
+            data
+          );
+          console.log(
+            "Encryption completed, encrypted length:",
+            encrypted.byteLength
+          );
+
+          const encryptedArray = new Uint8Array(encrypted);
+          const combined = new Uint8Array(iv.length + encryptedArray.length);
+          combined.set(iv);
+          combined.set(encryptedArray, iv.length);
+
+          const result = btoa(String.fromCharCode(...combined));
+          console.log("Final encrypted result length:", result.length);
+          console.log("Encryption successful in callback!");
+          return result;
+        } catch (error) {
+          console.error("Encryption failed in callback:", error);
+          console.log("Falling back to unencrypted token in callback");
+          return token; // Fallback to unencrypted
+        }
+      }
+
+      (async function () {
         console.log("Callback page loaded");
 
         // Extract access token from URL hash (implicit grant flow)
@@ -63,9 +111,22 @@
         if (accessToken && state && state.startsWith("aira-oauth-")) {
           console.log("Processing OAuth token...");
 
-          // Store access token in localStorage
-          localStorage.setItem("aira_oauth_token", accessToken);
+          // Encrypt the access token before storing
+          console.log(
+            "Original token (first 20 chars):",
+            accessToken.substring(0, 20) + "..."
+          );
+          const encryptedToken = await encryptToken(accessToken);
+          console.log(
+            "Encrypted token (first 20 chars):",
+            encryptedToken.substring(0, 20) + "..."
+          );
+          console.log("Token encrypted for storage");
+
+          // Store encrypted access token in localStorage
+          localStorage.setItem("aira_oauth_token", encryptedToken);
           localStorage.setItem("aira_oauth_state", state);
+          localStorage.setItem("aira_oauth_token_encrypted", "true");
           localStorage.setItem(
             "aira_oauth_token_type",
             hashParams.get("token_type") || "Bearer"
@@ -76,9 +137,9 @@
           );
           localStorage.setItem("aira_oauth_timestamp", Date.now().toString());
 
-          console.log("OAuth token stored in localStorage");
+          console.log("Encrypted OAuth token stored in localStorage");
 
-          // Send access token to extension via postMessage
+          // Send access token to extension via postMessage (still send original for processing)
           window.postMessage(
             {
               type: "OAUTH_TOKEN",
