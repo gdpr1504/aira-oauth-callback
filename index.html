@@ -127,30 +127,58 @@
               <ol>
                 <li>Click the "Copy" button above to copy the token</li>
                 <li>Go back to the extension popup</li>
-                <li>Click the purple "Manual Token" button</li>
-                <li>Paste the token when prompted</li>
+                <li>Click the green "Copy Token from URL" button (easiest)</li>
+                <li>OR click the purple "Manual Token" button and paste</li>
               </ol>
-              <p style="color: #666; font-size: 14px;">You can close this window when done.</p>
+              <p style="color: #666; font-size: 14px;">This window will stay open until you close it manually.</p>
+              <p style="color: #ff6b35; font-size: 12px; font-weight: bold;">⚠️ DO NOT CLOSE THIS WINDOW until you've copied the token!</p>
+              <button id="closeWindowBtn" style="margin-top: 15px; padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">Close Window</button>
             </div>
           `;
-          
-          // Add copy functionality
-          document.getElementById('copyBtn').addEventListener('click', function() {
-            const tokenText = document.getElementById('tokenText').textContent;
-            navigator.clipboard.writeText(tokenText).then(function() {
-              const btn = document.getElementById('copyBtn');
-              const originalText = btn.textContent;
-              btn.textContent = 'Copied!';
-              btn.style.background = '#45a049';
-              setTimeout(() => {
-                btn.textContent = originalText;
-                btn.style.background = '#4CAF50';
-              }, 2000);
-            }).catch(function(err) {
-              console.error('Failed to copy token: ', err);
-              alert('Failed to copy token. Please copy it manually.');
-            });
+
+          // Prevent window from closing automatically
+          window.addEventListener("beforeunload", function (e) {
+            e.preventDefault();
+            e.returnValue =
+              "Are you sure you want to close? You may need to copy the token first.";
+            return "Are you sure you want to close? You may need to copy the token first.";
           });
+
+          // Add debugging
+          console.log("Callback page success screen loaded");
+          console.log("Window will NOT close automatically");
+
+          // Add copy functionality
+          document
+            .getElementById("copyBtn")
+            .addEventListener("click", function () {
+              const tokenText =
+                document.getElementById("tokenText").textContent;
+              navigator.clipboard
+                .writeText(tokenText)
+                .then(function () {
+                  const btn = document.getElementById("copyBtn");
+                  const originalText = btn.textContent;
+                  btn.textContent = "Copied!";
+                  btn.style.background = "#45a049";
+                  setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = "#4CAF50";
+                  }, 2000);
+                })
+                .catch(function (err) {
+                  console.error("Failed to copy token: ", err);
+                  alert("Failed to copy token. Please copy it manually.");
+                });
+            });
+
+          // Add close window functionality
+          document
+            .getElementById("closeWindowBtn")
+            .addEventListener("click", function () {
+              console.log("Close window button clicked");
+              window.close();
+            });
         } else {
           console.log("No valid token or state found");
           document.body.innerHTML = "<p>Error: No access token found.</p>";
