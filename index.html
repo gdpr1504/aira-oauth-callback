@@ -17,48 +17,29 @@
         try {
           console.log("Exchanging code for user data...");
 
-          const response = await fetch(
-            "http://localhost:8787/api/oauth/google",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                code: code,
-                state: "aira-oauth-extension",
-                redirect_uri: "https://gdpr1504.github.io/aira-oauth-callback",
-              }),
-            }
+          // Store the code in localStorage and let the extension handle the backend request
+          localStorage.setItem("aira_oauth_code", code);
+          localStorage.setItem("aira_oauth_state", "aira-oauth-extension");
+          localStorage.setItem("aira_oauth_timestamp", Date.now().toString());
+
+          console.log(
+            "OAuth code stored in localStorage, extension will handle backend request"
           );
 
-          if (!response.ok) {
-            throw new Error(`Backend error: ${response.status}`);
-          }
-
-          const userData = await response.json();
-          console.log("User data received:", userData);
-
-          // Store user data in localStorage
-          localStorage.setItem("aira_oauth_user", JSON.stringify(userData));
-          localStorage.setItem("aira_oauth_completed", "true");
-          localStorage.setItem(
-            "aira_oauth_backend_timestamp",
-            Date.now().toString()
-          );
-
-          console.log("User data stored in localStorage");
-
-          // Send success message to extension
+          // Send code to extension for backend processing
           window.postMessage(
             {
-              type: "OAUTH_SUCCESS",
-              userData: userData,
+              type: "OAUTH_CODE",
+              code: code,
+              state: "aira-oauth-extension",
             },
             "*"
           );
+
+          // Show processing message
+          document.body.innerHTML = "<p>Processing authentication...</p>";
         } catch (error) {
-          console.error("Error exchanging code for user data:", error);
+          console.error("Error processing OAuth code:", error);
 
           // Store error in localStorage
           localStorage.setItem("aira_oauth_error", error.message);
@@ -75,6 +56,8 @@
             },
             "*"
           );
+
+          document.body.innerHTML = `<p>Error: ${error.message}</p>`;
         }
       }
 
