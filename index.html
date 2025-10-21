@@ -12,6 +12,72 @@
   <body>
     <p>Signing in...</p>
     <script>
+      // Function to exchange authorization code for user data
+      async function exchangeCodeForUserData(code) {
+        try {
+          console.log("Exchanging code for user data...");
+
+          const response = await fetch(
+            "http://localhost:8787/api/oauth/google",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                code: code,
+                state: "aira-oauth-extension",
+                redirect_uri: "https://gdpr1504.github.io/aira-oauth-callback",
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`Backend error: ${response.status}`);
+          }
+
+          const userData = await response.json();
+          console.log("User data received:", userData);
+
+          // Store user data in localStorage
+          localStorage.setItem("aira_oauth_user", JSON.stringify(userData));
+          localStorage.setItem("aira_oauth_completed", "true");
+          localStorage.setItem(
+            "aira_oauth_backend_timestamp",
+            Date.now().toString()
+          );
+
+          console.log("User data stored in localStorage");
+
+          // Send success message to extension
+          window.postMessage(
+            {
+              type: "OAUTH_SUCCESS",
+              userData: userData,
+            },
+            "*"
+          );
+        } catch (error) {
+          console.error("Error exchanging code for user data:", error);
+
+          // Store error in localStorage
+          localStorage.setItem("aira_oauth_error", error.message);
+          localStorage.setItem(
+            "aira_oauth_error_timestamp",
+            Date.now().toString()
+          );
+
+          // Send error message to extension
+          window.postMessage(
+            {
+              type: "OAUTH_ERROR",
+              error: error.message,
+            },
+            "*"
+          );
+        }
+      }
+
       (function () {
         console.log("Callback page loaded");
         console.log("Current URL:", window.location.href);
@@ -34,7 +100,15 @@
         }
 
         if (code && state === "aira-oauth-extension") {
-          console.log("Sending OAUTH_CODE message");
+          console.log("Processing OAuth code:", code);
+
+          // Store authorization code in localStorage
+          localStorage.setItem("aira_oauth_code", code);
+          localStorage.setItem("aira_oauth_state", state);
+          localStorage.setItem("aira_oauth_timestamp", Date.now().toString());
+
+          console.log("OAuth code stored in localStorage");
+
           // Send authorization code to extension via postMessage
           window.postMessage(
             {
@@ -45,12 +119,15 @@
             "*"
           );
 
+          // Exchange code for user data via backend
+          exchangeCodeForUserData(code);
+
           // Show success message
           document.body.innerHTML =
             "<p>Authentication successful! You can close this window.</p>";
 
           // Close tab automatically after a delay
-          setTimeout(() => window.close(), 2000);
+          setTimeout(() => window.close(), 3000);
         } else {
           console.log("No valid code or state found");
           document.body.innerHTML =
