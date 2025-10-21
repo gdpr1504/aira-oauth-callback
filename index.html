@@ -64,17 +64,22 @@
       (function () {
         console.log("Callback page loaded");
         console.log("Current URL:", window.location.href);
-        console.log("Search params:", window.location.search);
+        console.log("Hash:", window.location.hash);
 
-        // Extract authorization code from URL query parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get("code");
-        const state = urlParams.get("state");
-        const error = urlParams.get("error");
+        // Extract access token from URL hash (implicit grant flow)
+        const hash = window.location.hash.substring(1); // Remove # from hash
+        const hashParams = new URLSearchParams(hash);
+        const accessToken = hashParams.get("access_token");
+        const state = hashParams.get("state");
+        const error = hashParams.get("error");
+        const tokenType = hashParams.get("token_type");
+        const expiresIn = hashParams.get("expires_in");
 
-        console.log("Code:", code);
+        console.log("Access Token:", accessToken ? "present" : "missing");
         console.log("State:", state);
         console.log("Error:", error);
+        console.log("Token Type:", tokenType);
+        console.log("Expires In:", expiresIn);
 
         if (error) {
           console.log("OAuth error:", error);
@@ -82,28 +87,32 @@
           return;
         }
 
-        if (code && state === "aira-oauth-extension") {
-          console.log("Processing OAuth code:", code);
+        if (accessToken && state && state.startsWith("aira-oauth-")) {
+          console.log(
+            "Processing OAuth token:",
+            accessToken.substring(0, 20) + "..."
+          );
 
-          // Store authorization code in localStorage
-          localStorage.setItem("aira_oauth_code", code);
+          // Store access token in localStorage
+          localStorage.setItem("aira_oauth_token", accessToken);
           localStorage.setItem("aira_oauth_state", state);
+          localStorage.setItem("aira_oauth_token_type", tokenType || "Bearer");
+          localStorage.setItem("aira_oauth_expires_in", expiresIn || "3600");
           localStorage.setItem("aira_oauth_timestamp", Date.now().toString());
 
-          console.log("OAuth code stored in localStorage");
+          console.log("OAuth token stored in localStorage");
 
-          // Send authorization code to extension via postMessage
+          // Send access token to extension via postMessage
           window.postMessage(
             {
-              type: "OAUTH_CODE",
-              code: code,
+              type: "OAUTH_TOKEN",
+              token: accessToken,
               state: state,
+              tokenType: tokenType,
+              expiresIn: expiresIn,
             },
             "*"
           );
-
-          // Exchange code for user data via backend
-          exchangeCodeForUserData(code);
 
           // Show success message
           document.body.innerHTML =
@@ -112,9 +121,8 @@
           // Close tab automatically after a delay
           setTimeout(() => window.close(), 3000);
         } else {
-          console.log("No valid code or state found");
-          document.body.innerHTML =
-            "<p>Error: No authorization code found.</p>";
+          console.log("No valid token or state found");
+          document.body.innerHTML = "<p>Error: No access token found.</p>";
         }
       })();
     </script>
